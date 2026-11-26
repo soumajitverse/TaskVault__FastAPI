@@ -8,9 +8,9 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 - [x] **Phase 1: Environment and FastAPI Setup**
 - [x] **Phase 2: PostgreSQL Connection and SQLAlchemy Models**
 - [x] **Phase 3: Alembic Initialization and Database Migrations**
-- [ ] **Phase 4: Task CRUD Operations** *(In Progress)*
-- [ ] **Phase 5: JWT Authentication and Password Hashing**
-- [ ] **Phase 6: RBAC and Resource Ownership Authorization**
+- [x] **Phase 4: User Schemas, Password Hashing & JWT Authentication**
+- [ ] **Phase 5: Task CRUD Operations (Linked to Authenticated User)** *(In Progress)*
+- [ ] **Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation**
 - [ ] **Phase 7: Custom Logging Middleware**
 - [ ] **Phase 8: End-to-End Testing via Swagger UI**
 
@@ -50,55 +50,53 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 
 ---
 
-### [ ] Phase 4: Task CRUD Operations
-- [ ] Define Pydantic v2 schemas in `app/schemas/task.py`:
-  - `TaskBase`, `TaskCreate`, `TaskUpdate`, `TaskResponse`.
+### [x] Phase 4: User Schemas, Password Hashing & JWT Authentication
+- [x] Define Pydantic user schemas in `app/schemas/user.py` (`UserBase`, `UserCreate`, `UserLogin`, `UserResponse`, `Token`, `TokenData`).
+- [x] Implement password hashing and verification using `pwdlib` (Argon2) in `app/core/security.py`.
+- [x] Implement JWT token creation and decoding using `pyjwt` in `app/core/security.py`.
+- [x] Implement authentication router in `app/routers/auth.py`:
+  - `POST /auth/register` (Register user with hashed password; default role USER; email unique).
+  - `POST /auth/login` (Clean JSON login with email/password; issue JWT access token).
+  - `GET /auth/me` (Protected profile endpoint).
+- [x] Create `get_current_user` dependency in `app/core/dependencies.py` using `HTTPBearer`.
+- [x] Register auth router in `app/main.py`.
+- [x] Test registration, login, and token authorization in Swagger UI.
+- **Commit:** `feat: implement user schemas, password hashing, and jwt authentication`
+
+---
+
+### [ ] Phase 5: Task CRUD Operations (Linked to Authenticated User)
+- [x] Define Pydantic task schemas in `app/schemas/task.py` (`TaskBase`, `TaskCreate`, `TaskUpdate`, `TaskResponse`).
 - [ ] Implement task router in `app/routers/tasks.py` with SQLAlchemy 2.0 `select()` syntax:
-  - `POST /tasks` (Create task)
-  - `GET /tasks` (List tasks)
-  - `GET /tasks/{task_id}` (Get task by ID)
-  - `PUT /tasks/{task_id}` (Update task)
-  - `DELETE /tasks/{task_id}` (Delete task)
+  - `POST /tasks` (Create task, automatically setting `owner_id = current_user.id`).
+  - `GET /tasks` (List tasks owned by the authenticated user).
+  - `GET /tasks/{task_id}` (Get specific task owned by user; return 404 if not found or not owned).
+  - `PUT /tasks/{task_id}` (Update task owned by user).
+  - `DELETE /tasks/{task_id}` (Delete task owned by user).
 - [ ] Register task router in `app/main.py`.
-- [ ] Test task CRUD operations in Swagger UI.
-- **Commit:** `feat: implement task CRUD schemas and router`
+- [ ] Test task CRUD operations with bearer token authorization in Swagger UI.
+- **Commit:** `feat: implement authenticated task crud endpoints`
 
 ---
 
-### [ ] Phase 5: JWT Authentication & Password Hashing
-- [ ] Create security helpers in `app/core/security.py`:
-  - Password hashing & verification using `pwdlib` (Argon2).
-  - JWT token generation & decoding using `pyjwt`.
-- [ ] Define user schemas in `app/schemas/user.py`:
-  - `UserRegister`, `UserLogin`, `UserResponse`, `TokenResponse`.
-- [ ] Implement authentication router in `app/routers/auth.py`:
-  - `POST /auth/register` (Register user with hashed password; default role USER).
-  - `POST /auth/login` (Verify credentials and issue JWT access token).
-- [ ] Register auth router in `app/main.py`.
-- [ ] Test user registration and token generation.
-- **Commit:** `feat: implement password hashing and jwt authentication`
-
----
-
-### [ ] Phase 6: RBAC & Resource Ownership Authorization
-- [ ] Create authentication and authorization dependencies in `app/core/dependencies.py`:
-  - `get_current_user` (extract and decode JWT bearer token).
-  - `require_role(role)` (reusable dependency enforcing ADMIN or USER).
-- [ ] Protect task endpoints with `get_current_user`:
-  - Automatically assign `owner_id = current_user.id` on task creation.
-  - Standard users can only view, update, and delete their own tasks.
-  - 403 Forbidden / 404 Not Found if accessing another user's task.
-- [ ] Implement admin user router in `app/routers/users.py`:
-  - `GET /users` (ADMIN only).
-  - `GET /tasks/all` (ADMIN only - view all users' tasks).
-- [ ] Test role-based barriers in Swagger UI.
-- **Commit:** `feat: add rbac dependencies and task ownership isolation`
+### [ ] Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation
+- [ ] Create reusable `require_role(required_role)` dependency in `app/core/dependencies.py`.
+- [ ] Implement admin user management router in `app/routers/users.py`:
+  - `GET /users` (ADMIN only — list all users).
+  - `GET /tasks/all` or `GET /admin/tasks` (ADMIN only — view all tasks across all users).
+  - Admin override: allow ADMIN to manage/delete any task.
+- [ ] Register user router in `app/main.py`.
+- [ ] Verify RBAC barriers in Swagger UI (USER gets 403 Forbidden on admin endpoints).
+- **Commit:** `feat: implement rbac dependencies and admin management endpoints`
 
 ---
 
 ### [ ] Phase 7: Custom Logging Middleware
-- [ ] Implement custom middleware in `app/middleware/logging.py`:
-  - Capture HTTP method, request URL/path, response status code, and execution time in ms.
+- [ ] Implement custom HTTP middleware in `app/middleware/logging.py`:
+  - Log incoming HTTP method.
+  - Log requested URL/path.
+  - Log response status code.
+  - Measure and log request processing time (ms).
 - [ ] Register middleware in `app/main.py`.
 - [ ] Understand differences between Middleware and FastAPI `Depends`.
 - [ ] Verify console output during requests.
@@ -107,10 +105,10 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 ---
 
 ### [ ] Phase 8: End-to-End Testing via Swagger UI
-- [ ] Register regular user and login to get JWT.
-- [ ] Authorize via Swagger UI "Authorize" button (`Bearer <token>`).
-- [ ] Create, read, update, delete tasks as regular user.
-- [ ] Verify non-owner cannot touch tasks.
-- [ ] Test admin capabilities.
-- [ ] Final code cleanup and documentation review.
+- [ ] Register a standard user and an admin user.
+- [ ] Authenticate in Swagger UI via the `Authorize` (Lock) button using JWT Bearer token.
+- [ ] Perform complete task lifecycle as standard user.
+- [ ] Verify resource isolation: ensure User B cannot access User A's tasks by guessing task IDs.
+- [ ] Verify admin permissions across all resources.
+- [ ] Final code verification, linting, and documentation check.
 - **Commit:** `docs: complete taskvault api testing and verification`
