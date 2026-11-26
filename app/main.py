@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 
 from app.core.config import settings
-
-from app.routers import auth  
+from app.routers import auth, tasks
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -10,7 +9,10 @@ app = FastAPI(
     description="TaskVault REST API",
 )
 
-app.include_router(auth.router) 
+# Register routers
+app.include_router(auth.router)
+app.include_router(tasks.router)
+
 
 @app.get("/health", tags=["Health"])
 def health_check():

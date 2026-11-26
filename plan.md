@@ -9,8 +9,8 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 - [x] **Phase 2: PostgreSQL Connection and SQLAlchemy Models**
 - [x] **Phase 3: Alembic Initialization and Database Migrations**
 - [x] **Phase 4: User Schemas, Password Hashing & JWT Authentication**
-- [ ] **Phase 5: Task CRUD Operations (Linked to Authenticated User)** *(In Progress)*
-- [ ] **Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation**
+- [x] **Phase 5: Task CRUD Operations (Linked to Authenticated User)**
+- [ ] **Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation** *(In Progress)*
 - [ ] **Phase 7: Custom Logging Middleware**
 - [ ] **Phase 8: End-to-End Testing via Swagger UI**
 
@@ -65,16 +65,16 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 
 ---
 
-### [ ] Phase 5: Task CRUD Operations (Linked to Authenticated User)
+### [x] Phase 5: Task CRUD Operations (Linked to Authenticated User)
 - [x] Define Pydantic task schemas in `app/schemas/task.py` (`TaskBase`, `TaskCreate`, `TaskUpdate`, `TaskResponse`).
-- [ ] Implement task router in `app/routers/tasks.py` with SQLAlchemy 2.0 `select()` syntax:
+- [x] Implement task router in `app/routers/tasks.py` with SQLAlchemy 2.0 `select()` syntax:
   - `POST /tasks` (Create task, automatically setting `owner_id = current_user.id`).
   - `GET /tasks` (List tasks owned by the authenticated user).
   - `GET /tasks/{task_id}` (Get specific task owned by user; return 404 if not found or not owned).
-  - `PUT /tasks/{task_id}` (Update task owned by user).
-  - `DELETE /tasks/{task_id}` (Delete task owned by user).
-- [ ] Register task router in `app/main.py`.
-- [ ] Test task CRUD operations with bearer token authorization in Swagger UI.
+  - `PUT /tasks/{task_id}` (Update task owned by user with `exclude_unset=True`).
+  - `DELETE /tasks/{task_id}` (Delete task owned by user; 204 No Content).
+- [x] Register task router in `app/main.py`.
+- [x] Verify task CRUD operations with bearer token authorization in Swagger UI.
 - **Commit:** `feat: implement authenticated task crud endpoints`
 
 ---
