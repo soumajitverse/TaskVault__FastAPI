@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_admin
 from app.database.session import get_db
 from app.models.task import Task
 from app.models.user import User
@@ -49,7 +49,29 @@ def get_tasks(
     return db.scalars(query).all()
 
 
-# 3. Get Single Task (enforcing ownership)
+# 3. List All Tasks Across the Entire System (Admin Only)
+# IMPORTANT ROUTING ORDER NOTE:
+# This static route ("/all") MUST be defined BEFORE the dynamic path parameter route ("/{task_id}").
+# If "/{task_id}" were placed first, FastAPI would match "/tasks/all", try to parse the string "all"
+# into the integer `task_id: int`, and fail with an HTTP 422 Unprocessable Entity error.
+@router.get(
+    "/all",
+    response_model=list[TaskResponse],
+    summary="List all tasks across all users (Admin only)",
+)
+def get_all_tasks_admin(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_admin),
+):
+    """Admin-only endpoint: Retrieve every task created in TaskVault regardless of ownership.
+
+    - Authenticated Users with role="USER" will be rejected with HTTP 403 Forbidden.
+    - Authenticated Admins with role="ADMIN" are granted full visibility.
+    """
+    return db.scalars(select(Task)).all()
+
+
+# 4. Get Single Task (enforcing ownership)
 @router.get(
     "/{task_id}",
     response_model=TaskResponse,
@@ -71,7 +93,7 @@ def get_task(
     return task
 
 
-# 4. Update Task (enforcing ownership)
+# 5. Update Task (enforcing ownership)
 @router.put(
     "/{task_id}", response_model=TaskResponse, summary="Update a task"
 )
@@ -100,7 +122,7 @@ def update_task(
     return task
 
 
-# 5. Delete Task (enforcing ownership)
+# 6. Delete Task (enforcing ownership)
 @router.delete(
     "/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT,

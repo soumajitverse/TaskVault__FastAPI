@@ -33,7 +33,12 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# 5. JWT Token Schemas (OAuth2 format)
+# 5. Admin Role Update Schema
+class UserRoleUpdate(BaseModel):
+    role: str = Field(..., pattern="^(ADMIN|USER)$", description="Role must be either 'ADMIN' or 'USER'")
+
+
+# 6. JWT Token Schemas (OAuth2 format)
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

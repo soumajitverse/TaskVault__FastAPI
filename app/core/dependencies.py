@@ -43,3 +43,24 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+
+def require_role(required_role: str):
+    """Reusable dependency factory for Role-Based Access Control (RBAC).
+
+    Raises 403 Forbidden if the authenticated user's role does not match.
+    """
+
+    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Operation not permitted. Requires {required_role} role.",
+            )
+        return current_user
+
+    return role_checker
+
+
+# Convenient pre-configured dependency for Admin endpoints
+require_admin = require_role("ADMIN")

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from app.core.config import settings
-from app.routers import auth, tasks
+from app.routers import auth, tasks, users
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -12,7 +12,7 @@ app = FastAPI(
 # Register routers
 app.include_router(auth.router)
 app.include_router(tasks.router)
-
+app.include_router(users.router)
 
 @app.get("/health", tags=["Health"])
 def health_check():

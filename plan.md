@@ -10,8 +10,8 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 - [x] **Phase 3: Alembic Initialization and Database Migrations**
 - [x] **Phase 4: User Schemas, Password Hashing & JWT Authentication**
 - [x] **Phase 5: Task CRUD Operations (Linked to Authenticated User)**
-- [ ] **Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation** *(In Progress)*
-- [ ] **Phase 7: Custom Logging Middleware**
+- [x] **Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation**
+- [ ] **Phase 7: Custom Logging Middleware** *(In Progress)*
 - [ ] **Phase 8: End-to-End Testing via Swagger UI**
 
 ---
@@ -79,15 +79,17 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 
 ---
 
-### [ ] Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation
-- [ ] Create reusable `require_role(required_role)` dependency in `app/core/dependencies.py`.
-- [ ] Implement admin user management router in `app/routers/users.py`:
+### [x] Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation
+- [x] Create reusable `require_role(required_role)` dependency factory in `app/core/dependencies.py`.
+- [x] Implement admin user management router in `app/routers/users.py`:
   - `GET /users` (ADMIN only — list all users).
-  - `GET /tasks/all` or `GET /admin/tasks` (ADMIN only — view all tasks across all users).
-  - Admin override: allow ADMIN to manage/delete any task.
-- [ ] Register user router in `app/main.py`.
-- [ ] Verify RBAC barriers in Swagger UI (USER gets 403 Forbidden on admin endpoints).
-- **Commit:** `feat: implement rbac dependencies and admin management endpoints`
+  - `PATCH /users/{user_id}/role` (ADMIN only — promote or demote any user).
+- [x] Add admin task visibility in `app/routers/tasks.py`:
+  - `GET /tasks/all` (ADMIN only — view all tasks across all users).
+- [x] Seeded initial Admin user securely (`admin@taskvault.com` / `AdminSecure2026!`).
+- [x] Register user router in `app/main.py`.
+- [x] Verify RBAC barriers in Swagger UI (USER gets 403 Forbidden on admin endpoints).
+- **Commit:** `feat: implement rbac dependencies, admin management, and role promotion`
 
 ---
 
