@@ -11,8 +11,8 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 - [x] **Phase 4: User Schemas, Password Hashing & JWT Authentication**
 - [x] **Phase 5: Task CRUD Operations (Linked to Authenticated User)**
 - [x] **Phase 6: RBAC (Role-Based Access Control) & Ownership Isolation**
-- [ ] **Phase 7: Custom Logging Middleware** *(In Progress)*
-- [ ] **Phase 8: End-to-End Testing via Swagger UI**
+- [x] **Phase 7: Custom Logging Middleware**
+- [x] **Phase 8: End-to-End Testing via Swagger UI**
 
 ---
 
@@ -93,24 +93,24 @@ A step-by-step implementation plan for building the TaskVault FastAPI backend in
 
 ---
 
-### [ ] Phase 7: Custom Logging Middleware
-- [ ] Implement custom HTTP middleware in `app/middleware/logging.py`:
+### [x] Phase 7: Custom Logging Middleware
+- [x] Implement custom HTTP middleware in `app/middleware/logging.py`:
   - Log incoming HTTP method.
   - Log requested URL/path.
   - Log response status code.
   - Measure and log request processing time (ms).
-- [ ] Register middleware in `app/main.py`.
-- [ ] Understand differences between Middleware and FastAPI `Depends`.
-- [ ] Verify console output during requests.
+- [x] Register middleware in `app/main.py` using `app.add_middleware(LoggingMiddleware)`.
+- [x] Understand differences between Middleware and FastAPI `Depends`.
+- [x] Verify console output during requests.
 - **Commit:** `feat: add request timing and logging middleware`
 
 ---
 
-### [ ] Phase 8: End-to-End Testing via Swagger UI
-- [ ] Register a standard user and an admin user.
-- [ ] Authenticate in Swagger UI via the `Authorize` (Lock) button using JWT Bearer token.
-- [ ] Perform complete task lifecycle as standard user.
-- [ ] Verify resource isolation: ensure User B cannot access User A's tasks by guessing task IDs.
-- [ ] Verify admin permissions across all resources.
-- [ ] Final code verification, linting, and documentation check.
-- **Commit:** `docs: complete taskvault api testing and verification`
+### [x] Phase 8: End-to-End Testing via Swagger UI
+- [x] Register standard users (Alice, Bob) and seed admin user (`admin@taskvault.com`).
+- [x] Authenticate in Swagger UI via the `Authorize` (Lock) button using JWT Bearer token.
+- [x] Perform complete task lifecycle as standard user.
+- [x] Verify resource isolation: User B receives 404 Not Found on User A's tasks, preventing IDOR.
+- [x] Verify admin permissions across all resources (view all users, view all tasks, role promotion).
+- [x] Final code verification, linting, and documentation check.
+- **Commit:** `feat: complete all phases, middleware logging, and end-to-end testing`
