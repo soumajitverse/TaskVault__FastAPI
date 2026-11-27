@@ -20,6 +20,8 @@ This repository is designed not only as a working production service but also as
    - [Anti-IDOR Security Pattern (Ownership Isolation)](#56-preventing-idor-insecure-direct-object-references)
    - [Custom ASGI Middleware vs. FastAPI Dependencies](#57-custom-asgi-middleware-vs-route-dependencies)
 6. [API Reference & Testing Guide](#6-api-reference--testing-guide)
+7. [Automated Testing with Pytest](#7-automated-testing-with-pytest)
+8. [License & Credits](#8-license--credits)
 
 ---
 
@@ -434,6 +436,26 @@ All endpoints can be interactively tested at `http://127.0.0.1:8000/docs`.
 
 ---
 
-## 7. License & Credits
+## 7. Automated Testing with Pytest
+
+TaskVault includes comprehensive automated test suites in the `tests/` directory verifying:
+- **Health check** availability.
+- **User registration, duplicate rejection, and JWT generation**.
+- **Task CRUD operations & Anti-IDOR protection** (verifying that User B receives `404 Not Found` when attempting to read, update, or delete User A's tasks).
+- **Role-Based Access Control** (verifying standard users receive `403 Forbidden` on `/users` and `/tasks/all`, while Admins receive `200 OK`).
+
+### Running the Test Suite:
+1. Install test dependencies:
+   ```bash
+   pip install pytest httpx
+   ```
+2. Run all tests:
+   ```bash
+   pytest -v
+   ```
+
+---
+
+## 8. License & Credits
 
 Built as part of the **TaskVault** backend architecture project. Feel free to use this codebase as a foundational template for your production FastAPI applications.
