@@ -1,125 +1,113 @@
-# TaskVault – Production-Ready FastAPI Backend
+# TaskVault – Production-Grade FastAPI Backend & Engineering Guide
 
-TaskVault is a modern, enterprise-grade Task Management REST API built with **Python 3.12+**, **FastAPI**, **SQLAlchemy 2.0**, and **Neon PostgreSQL**.
+TaskVault is an enterprise-grade Task Management REST API built from the ground up using **Python 3.12+**, **FastAPI**, **SQLAlchemy 2.0**, and **Neon Serverless PostgreSQL**.
 
-This repository is designed not only as a working production service but also as a **comprehensive educational blueprint** for Python developers who want to transition from basic scripting to professional backend engineering.
+This repository is engineered to serve two distinct purposes:
+1. **A Production-Ready Backend**: A secure, high-performance task management API with JWT authentication, granular Role-Based Access Control (RBAC), database migrations, and structured request-timing middleware.
+2. **An End-to-End Educational Blueprint**: A comprehensive reference manual for Python developers looking to master modern asynchronous backend engineering, database architectures, and API security.
 
 ---
 
 ## Table of Contents
-1. [Architecture Overview](#1-architecture-overview)
-2. [Tech Stack & Library Breakdown](#2-tech-stack--library-breakdown)
-3. [Database: Neon PostgreSQL](#3-database-neon-postgresql)
-4. [Local Setup & Installation](#4-local-setup--installation)
-5. [The FastAPI Backend Masterclass (Core Concepts)](#5-the-fastapi-backend-masterclass-core-concepts)
-   - [Pydantic v2 vs. SQLAlchemy 2.0](#51-pydantic-v2-schemas-vs-sqlalchemy-20-models)
-   - [Database Session Management (`yield db`)](#52-database-session-lifecycle-with-yield)
-   - [Database Schema Migrations with Alembic](#53-why-alembic-instead-of-create_all)
-   - [JWT Authentication & Argon2 Password Hashing](#54-how-jwt-authentication--argon2-hashing-work)
-   - [Role-Based Access Control (RBAC) & Reusable Dependencies](#55-role-based-access-control-rbac-dependencies)
-   - [Anti-IDOR Security Pattern (Ownership Isolation)](#56-preventing-idor-insecure-direct-object-references)
-   - [Custom ASGI Middleware vs. FastAPI Dependencies](#57-custom-asgi-middleware-vs-route-dependencies)
-6. [API Reference & Testing Guide](#6-api-reference--testing-guide)
-7. [Automated Testing with Pytest](#7-automated-testing-with-pytest)
-8. [License & Credits](#8-license--credits)
+1. [Project Overview & Architectural Design](#1-project-overview--architectural-design)
+2. [Complete Tech Stack & Deep Dependency Analysis](#2-complete-tech-stack--deep-dependency-analysis)
+3. [Database Architecture: Neon Serverless PostgreSQL](#3-database-architecture-neon-serverless-postgresql)
+4. [Comprehensive Directory & File Map](#4-comprehensive-directory--file-map)
+5. [Step-by-Step Local Setup & Execution Guide](#5-step-by-step-local-setup--execution-guide)
+6. [The FastAPI Backend Masterclass (Core Concepts Deep Dive)](#6-the-fastapi-backend-masterclass-core-concepts-deep-dive)
+   - [6.1. Pydantic v2 Schemas vs. SQLAlchemy 2.0 ORM Models](#61-pydantic-v2-schemas-vs-sqlalchemy-20-orm-models)
+   - [6.2. Modern SQLAlchemy 2.0 Syntax (`Mapped` and `select`)](#62-modern-sqlalchemy-20-syntax-mapped-and-select)
+   - [6.3. Relational Modeling & Cascading Deletions](#63-relational-modeling--cascading-deletions)
+   - [6.4. Database Session Lifecycles (`yield db` and Connection Leaks)](#64-database-session-lifecycles-yield-db-and-connection-leaks)
+   - [6.5. Database Schema Version Control with Alembic](#65-database-schema-version-control-with-alembic)
+   - [6.6. Cryptographic Security: Argon2 Hashing & JWT Authentication](#66-cryptographic-security-argon2-hashing--jwt-authentication)
+   - [6.7. Role-Based Access Control (RBAC) via Dependency Factories](#67-role-based-access-control-rbac-via-dependency-factories)
+   - [6.8. Mitigation of IDOR (Insecure Direct Object References)](#68-mitigation-of-idor-insecure-direct-object-references)
+   - [6.9. ASGI Middleware vs. Route-Level Dependencies](#69-asgi-middleware-vs-route-level-dependencies)
+7. [Automated Testing Suite (`pytest` & `TestClient`)](#7-automated-testing-suite-pytest--testclient)
+8. [Comprehensive REST API Reference & Swagger UI Guide](#8-comprehensive-rest-api-reference--swagger-ui-guide)
+9. [Production Deployment & Security Hardening Checklist](#9-production-deployment--security-hardening-checklist)
+10. [License & Acknowledgments](#10-license--acknowledgments)
 
 ---
 
-## 1. Architecture Overview
+## 1. Project Overview & Architectural Design
 
-TaskVault follows a modular, layered architecture ensuring separation of concerns:
+TaskVault follows the **Layered Clean Architecture** pattern. This separates user-facing data validation, business logic, authorization rules, and persistent storage into distinct, loosely-coupled layers.
 
-```
-                      [ Client: Swagger UI / Postman / Frontend ]
-                                          │
-                                          ▼
-                                [ Logging Middleware ]
-                       (Measures latency, logs method, path, status)
-                                          │
-                                          ▼
-                                  [ API Routers ]
-                       (/auth, /tasks, /users, /health endpoints)
-                                          │
-                    ┌─────────────────────┴─────────────────────┐
-                    ▼                                           ▼
-          [ Pydantic v2 Schemas ]                     [ FastAPI Dependencies ]
-     (Request validation & typing,                (Database session injection,
-      response filtering & serialization)          JWT decoding, RBAC checks)
-                                                                │
-                                                                ▼
-                                                     [ SQLAlchemy 2.0 ORM ]
-                                                    (Unit of Work & queries)
-                                                                │
-                                                                ▼
-                                                     [ Neon PostgreSQL DB ]
-```
-
-### Folder Structure
+### Architectural Request-Response Flow
 ```text
-FastAPI__Final/
-├── app/
-│   ├── core/
-│   │   ├── config.py          # Pydantic BaseSettings (typed environment variables)
-│   │   ├── security.py        # Argon2 hashing & PyJWT token encoding/decoding
-│   │   └── dependencies.py    # get_current_user & require_role RBAC guards
-│   ├── database/
-│   │   ├── base.py            # SQLAlchemy 2.0 DeclarativeBase registry
-│   │   └── session.py         # Engine pool & get_db per-request session generator
-│   ├── models/
-│   │   ├── user.py            # User database table definition & relationships
-│   │   └── task.py            # Task database table definition & foreign keys
-│   ├── schemas/
-│   │   ├── user.py            # User Pydantic request/response validation schemas
-│   │   └── task.py            # Task Pydantic request/response validation schemas
-│   ├── routers/
-│   │   ├── auth.py            # User registration, JSON login, profile endpoints
-│   │   ├── tasks.py           # Authenticated Task CRUD endpoints with ownership check
-│   │   └── users.py           # Admin-only user management & role elevation
-│   ├── middleware/
-│   │   └── logging.py         # Custom ASGI HTTP timing & request logger
-│   ├── __init__.py
-│   └── main.py                # FastAPI entrypoint application
-├── alembic/                   # Database version migration scripts
-├── .env.example               # Template for required environment variables
-├── .gitignore                 # Protects secrets (.env) and virtual environments
-├── alembic.ini                # Alembic configuration
-├── plan.md                    # Step-by-step progress checklist
-└── requirements.txt           # Pinned project dependencies
+[ Client (Browser / Postman / Swagger UI) ]
+                     │
+                     ▼
+         [ Logging Middleware ]
+      (Measures latency in ms, logs HTTP method, path, and response status)
+                     │
+                     ▼
+             [ API Routers ]
+      (Route dispatching: /auth, /tasks, /users)
+                     │
+     ┌───────────────┴───────────────────────────────┐
+     ▼                                               ▼
+[ Pydantic v2 Schemas ]                 [ FastAPI Dependencies ]
+ • Validates incoming payload shapes     • get_db: Yields DB session
+ • Rejects malformed types (422)         • get_current_user: Decodes JWT
+ • Strips sensitive fields on response   • require_admin: Enforces RBAC (403)
+                                                     │
+                                                     ▼
+                                          [ SQLAlchemy 2.0 ORM ]
+                                           • select() queries
+                                           • Session unit-of-work
+                                           • Model relationships
+                                                     │
+                                                     ▼
+                                          [ Neon PostgreSQL DB ]
 ```
 
----
-
-## 2. Tech Stack & Library Breakdown
-
-Every dependency in TaskVault was deliberately selected to adhere to industry standards. Here is why each library is used:
-
-| Library | Purpose in TaskVault | Why It Was Chosen |
-|---|---|---|
-| **`fastapi`** | Core Web Framework | High-performance asynchronous REST API framework with automatic OpenAPI/Swagger documentation generation and dependency injection. |
-| **`uvicorn[standard]`** | ASGI Web Server | Lightning-fast ASGI server built on `uvloop` and `httptools` to serve FastAPI in production and development (with `--reload`). |
-| **`sqlalchemy`** (v2.0+) | Object Relational Mapper (ORM) | Industry-standard database toolkit. Version 2.0 introduces full type hints (`Mapped[...]`), connection pooling, and explicit `select()` queries. |
-| **`psycopg2-binary`** | PostgreSQL Driver | The most stable, battle-tested PostgreSQL adapter for Python, handling raw TCP communication between SQLAlchemy and Postgres. |
-| **`alembic`** | Database Schema Migrations | "Git for your database". Tracks, generates, applies, and rolls back database schema modifications incrementally without data loss. |
-| **`pydantic-settings`** | Configuration Management | Parses and validates environment variables from `.env` files into strongly typed Python objects with fail-fast validation. |
-| **`pyjwt`** | JSON Web Tokens (JWT) | Encodes and verifies cryptographically signed bearer tokens using HMAC-SHA256 (`HS256`). |
-| **`pwdlib[argon2]`** | Password Hashing | Modern password hashing library using **Argon2id**, the winner of the Password Hashing Competition, immune to GPU/ASIC cracking. |
-| **`python-multipart`** | Form Data Parser | Required by FastAPI to support standard multipart and URL-encoded forms. |
+### Key Architectural Tenets:
+- **Strict Decoupling**: Database models (`app/models/`) are strictly separated from API transfer models (`app/schemas/`). Database internals (like password hashes) are never directly exposed over HTTP.
+- **Fail-Fast Configuration**: Settings are centralized and validated on application startup. If a required secret or database URL is absent, the server refuses to start rather than failing mid-request.
+- **Defensive Resource Ownership**: Standard users are isolated within their own data sandbox. Cross-tenant data tampering is rejected at the database query level.
 
 ---
 
-## 3. Database: Neon PostgreSQL
+## 2. Complete Tech Stack & Deep Dependency Analysis
 
-TaskVault is configured to use **[Neon](https://neon.tech)**, a serverless, cloud-native PostgreSQL platform with autoscaling and branching capabilities.
+Every package in TaskVault's `requirements.txt` was selected to fulfill a specific production requirement:
 
-### Connection String Format
-SQLAlchemy 2.0 with the `psycopg2` driver requires the connection string to begin with `postgresql+psycopg2://`:
+| Library | Version Category | Purpose in TaskVault | Technical Justification |
+|---|---|---|---|
+| **`fastapi`** | Web Framework | API routing, documentation, validation integration | Chosen for its native asynchronous capabilities, automatic OpenAPI (Swagger UI) generation, and dependency injection system (`Depends`). |
+| **`uvicorn[standard]`** | ASGI Server | Production HTTP/Websocket server | Blazing fast ASGI server powered by `uvloop` (an ultra-fast C-based asyncio event loop) and `httptools` (Node.js HTTP parser ported to Python). |
+| **`sqlalchemy`** | ORM (v2.0+) | Object Relational Mapping & Connection Pool | Modern SQLAlchemy 2.0 removes legacy ambiguity by introducing full Python type-hinting support (`Mapped[...]`), declarative bases, and SQL-like `select()` syntax. |
+| **`psycopg2-binary`** | Database Driver | PostgreSQL TCP Socket Adapter | The most battle-tested C-extension driver for PostgreSQL in the Python ecosystem. Provides robust connection management and SSL handshake support. |
+| **`alembic`** | Migrations | Schema version control | Automates database schema evolution over time. Compares Python models against database catalogs to autogenerate migration files. |
+| **`pydantic-settings`** | Configuration | Environment variable loading & validation | Reads variables from `.env` files and system environments, parsing strings into typed Python booleans, integers, and URLs on boot. |
+| **`pyjwt`** | Authentication | JWT signing and signature verification | Implements RFC 7519 JSON Web Tokens. Encodes user identity into a compact, cryptographically tamper-proof token using HMAC-SHA256 (`HS256`). |
+| **`pwdlib[argon2]`** | Password Hashing | Cryptographic one-way password hashing | Modern successor to passlib. Uses **Argon2id**, the winner of the Password Hashing Competition. Resistant to brute-force attacks via GPUs and ASICs. |
+| **`python-multipart`** | Form Parser | Parsing form data | Required by FastAPI when handling OAuth2 password flows or standard URL-encoded form submissions. |
+| **`pytest`** | Testing Engine | Test execution runner | Standard Python test framework used to discover, execute, and assert automated API test suites. |
+| **`httpx`** | HTTP Client | ASGI in-memory client for testing | Powers FastAPI's `TestClient`, allowing tests to simulate fast, non-network HTTP requests directly into the FastAPI ASGI interface. |
 
+---
+
+## 3. Database Architecture: Neon Serverless PostgreSQL
+
+TaskVault is architected to communicate with **[Neon](https://neon.tech)**, a cloud-native, serverless PostgreSQL service.
+
+### Neon Architectural Advantages:
+1. **Separation of Compute and Storage**: Neon separates the PostgreSQL processing nodes from storage, allowing instant database scale-to-zero when idle, and millisecond cold-starts upon incoming queries.
+2. **Database Branching**: Allows creating isolated instant clones of the database schema and data for staging, migrations, and CI/CD testing without affecting production.
+3. **Always-On SSL**: Neon enforces SSL encrypted TCP tunnels (`sslmode=require`) to ensure credentials and payloads are encrypted in transit.
+
+### Connection String Mechanics
+SQLAlchemy 2.0 utilizes driver prefixes to determine how to connect:
 ```text
 postgresql+psycopg2://<username>:<password>@<neon-hostname>.neon.tech/<database_name>?sslmode=require
 ```
 
-### Automatic Driver Normalization
-In `app/core/config.py`, we included a Pydantic `field_validator` that automatically sanitizes connection strings. If you paste a URL starting with `postgres://` or plain `postgresql://`, it is automatically converted to `postgresql+psycopg2://` on startup:
+### Self-Healing Connection String Parser:
+Cloud providers and hosting platforms frequently supply connection strings prefixed with `postgres://` or `postgresql://`. In `app/core/config.py`, TaskVault implements a Pydantic `field_validator` that intercepts and normalizes the connection string dynamically:
 ```python
 @field_validator("DATABASE_URL", mode="before")
 @classmethod
@@ -134,17 +122,62 @@ def assemble_db_connection(cls, v: str) -> str:
 
 ---
 
-## 4. Local Setup & Installation
+## 4. Comprehensive Directory & File Map
 
-Follow these steps to run TaskVault locally from scratch:
+```text
+FastAPI__Final/
+├── app/
+│   ├── core/
+│   │   ├── config.py          # Centralized Pydantic BaseSettings class loading .env
+│   │   ├── security.py        # Argon2 hashing utilities & JWT encode/decode functions
+│   │   └── dependencies.py    # get_current_user token decoder & require_role RBAC guard
+│   ├── database/
+│   │   ├── base.py            # DeclarativeBase defining the SQLAlchemy metadata registry
+│   │   └── session.py         # SQLAlchemy engine configuration & get_db session generator
+│   ├── models/
+│   │   ├── __init__.py        # Exposes User and Task models to metadata registry
+│   │   ├── user.py            # User ORM model (id, username, email, hashed_password, role)
+│   │   └── task.py            # Task ORM model (id, title, description, status, owner_id)
+│   ├── schemas/
+│   │   ├── user.py            # Pydantic schemas (UserBase, UserCreate, UserLogin, UserResponse)
+│   │   └── task.py            # Pydantic schemas (TaskBase, TaskCreate, TaskUpdate, TaskResponse)
+│   ├── routers/
+│   │   ├── auth.py            # /auth/register, /auth/login, /auth/me endpoints
+│   │   ├── tasks.py           # Authenticated Task CRUD endpoints with anti-IDOR checks
+│   │   └── users.py           # Admin endpoints: list users and PATCH user role
+│   ├── middleware/
+│   │   └── logging.py         # Starlette ASGI middleware logging method, path, status & latency
+│   ├── __init__.py            # Application package marker
+│   └── main.py                # FastAPI app initialization, middleware wiring & router registration
+├── alembic/
+│   ├── versions/              # Migration files versioning PostgreSQL table states
+│   ├── env.py                 # Migration runtime environment connecting Base.metadata to Neon
+│   └── script.py.mako         # Template used to generate new migration scripts
+├── tests/
+│   ├── __init__.py            # Tests package marker
+│   └── test_main.py           # Pytest test suite (Health, Auth, Task CRUD, IDOR, RBAC)
+├── .env.example               # Safe environment variable template for deployment
+├── .gitignore                 # Excludes .venv, bytecode, and .env secrets from source control
+├── alembic.ini                # Alembic CLI configuration file
+├── plan.md                    # Verified 8-phase project implementation roadmap
+├── README.md                  # Comprehensive architectural and educational documentation
+└── requirements.txt           # Pinned production and development dependencies
+```
 
-### 1. Clone the Repository
+---
+
+## 5. Step-by-Step Local Setup & Execution Guide
+
+Follow these instructions to run TaskVault locally from a clean terminal:
+
+### 1. Clone the Codebase
 ```bash
 git clone https://github.com/soumajitverse/TaskVault__FastAPI.git
 cd TaskVault__FastAPI
 ```
 
-### 2. Create and Activate a Virtual Environment
+### 2. Configure a Virtual Environment
+Isolates project packages from your global operating system Python:
 - **Windows (PowerShell):**
   ```powershell
   python -m venv .venv
@@ -156,17 +189,18 @@ cd TaskVault__FastAPI
   source .venv/bin/activate
   ```
 
-### 3. Install Dependencies
+### 3. Install Required Packages
 ```bash
 pip install -r requirements.txt
+pip install pytest httpx
 ```
 
-### 4. Configure Environment Variables
-Copy `.env.example` to create your `.env` file:
+### 4. Setup Environment Secrets
+Create a `.env` file in the project root:
 ```bash
 cp .env.example .env
 ```
-Open `.env` and set your Neon PostgreSQL URL and secrets:
+Edit `.env` with your actual Neon PostgreSQL connection string and a secret key:
 ```env
 PROJECT_NAME="TaskVault"
 DATABASE_URL="postgresql+psycopg2://<user>:<password>@<neon-host>.neon.tech/<dbname>?sslmode=require"
@@ -176,13 +210,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
 
 ### 5. Apply Database Migrations
-Run Alembic to create the tables in Neon PostgreSQL:
+Synchronize your Neon PostgreSQL cloud database with our SQLAlchemy models:
 ```bash
 alembic upgrade head
 ```
 
-### 6. (Optional) Seed the First Admin User
-Because public registration strictly defaults to standard `USER`, seed an initial `ADMIN` user directly into PostgreSQL:
+### 6. Seed the Initial Admin Account
+Because public registration strictly defaults to standard `USER`, run this bootstrap command to create the verified administrative user in PostgreSQL:
 ```bash
 python -c "
 from app.database.session import SessionLocal
@@ -208,57 +242,153 @@ db.close()
 "
 ```
 
-### 7. Launch the Development Server
+### 7. Run the Development Server
 ```bash
 uvicorn app.main:app --reload
 ```
-Open your browser to:
+The server will boot at `http://127.0.0.1:8000`.
+
+Interactive documentation will be available at:
 - **Swagger UI Interactive Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc Alternative Docs:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
-- **Health Check:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+- **ReDoc Alternate Docs:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
 ---
 
-## 5. The FastAPI Backend Masterclass (Core Concepts)
+## 6. The FastAPI Backend Masterclass (Core Concepts Deep Dive)
 
-If you only know basic Python, this section explains the core architectural principles that turn simple scripts into enterprise web backends.
+This section breaks down the foundational engineering paradigms that power professional Python backends.
 
 ---
 
-### 5.1. Pydantic v2 Schemas vs. SQLAlchemy 2.0 Models
+### 6.1. Pydantic v2 Schemas vs. SQLAlchemy 2.0 ORM Models
 
-A common question is: *"Why do we define User in `models/user.py` AND in `schemas/user.py`?"*
+Beginners frequently ask: *"Why define `User` in `models/user.py` and again in `schemas/user.py`?"*
 
-- **SQLAlchemy Models (`app/models/`)** define the **Database Structure**.
-  - Maps Python classes to PostgreSQL tables.
-  - Dictates primary keys, foreign keys, table indexes, and relationships.
-- **Pydantic Schemas (`app/schemas/`)** define the **HTTP Contract (Data Transfer Objects)**.
-  - Dictates what JSON keys a user can send and what JSON keys our server returns.
-  - Performs validation (e.g., minimum string length, email regex).
-  - **Security Filter:** When returning a user profile, `UserResponse` excludes `hashed_password`. Even though the database model has the hash, Pydantic strips it out so it never leaks over the internet!
+```text
+┌───────────────────────────────────────────────┐
+│              HTTP Request (JSON)              │
+│       {"email": "alice@test.com", ...}        │
+└──────────────────────┬────────────────────────┘
+                       │
+                       ▼
+┌───────────────────────────────────────────────┐
+│        Pydantic Schema (app/schemas/)         │
+│  • Enforces validation rules (regex, length)  │
+│  • Parses JSON into clean Python types        │
+└──────────────────────┬────────────────────────┘
+                       │
+                       ▼
+┌───────────────────────────────────────────────┐
+│         SQLAlchemy ORM (app/models/)          │
+│  • Represents rows in PostgreSQL              │
+│  • Executes SQL transactions, joins, foreign  │
+│    key cascades                               │
+└──────────────────────┬────────────────────────┘
+                       │
+                       ▼
+┌───────────────────────────────────────────────┐
+│             PostgreSQL Database               │
+│               [ users table ]                 │
+└───────────────────────────────────────────────┘
+```
 
-#### How SQLAlchemy objects convert to Pydantic:
+1. **SQLAlchemy Models (`app/models/`)** represent **state at rest in the database**. They map directly to columns, foreign key constraints, and relational cascades inside PostgreSQL.
+2. **Pydantic Schemas (`app/schemas/`)** represent **data contracts over the wire**. They validate incoming HTTP requests and format outgoing HTTP responses.
+
+#### The Data Protection Boundary:
+When a user registers, the database saves `hashed_password`. When returning the user profile via HTTP, `UserResponse` explicitly omits `hashed_password`. Even though the database model holds the hash, Pydantic's serialization guarantees it is never emitted in the response JSON.
+
+#### The `from_attributes = True` Bridge:
 ```python
-class UserResponse(UserBase):
+class TaskResponse(TaskBase):
     id: int
-    role: str
+    owner_id: int
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 ```
-`from_attributes = True` tells Pydantic: *"Read fields using dot notation (`user.id`, `user.email`) from SQLAlchemy ORM instances instead of expecting raw dictionary keys (`user['id']`)."*
+In Python, dictionary access uses brackets (`task["title"]`), while ORM model instances use attributes (`task.title`). By setting `from_attributes=True` (formerly `orm_mode` in Pydantic v1), Pydantic is instructed to read attributes directly from SQLAlchemy objects and serialize them into JSON.
 
 ---
 
-### 5.2. Database Session Lifecycle with `yield`
+### 6.2. Modern SQLAlchemy 2.0 Syntax (`Mapped` and `select`)
 
-Opening a new database connection for every single query is slow. Leaving database connections open forever causes the server to run out of connections and crash.
+In legacy SQLAlchemy 1.x, models were declared using untyped `Column()` constructs, and queries relied on `db.query()`.
 
-FastAPI solves this with generator dependencies:
+SQLAlchemy 2.0 modernized this to provide full static type-checking and explicit queries:
+
+```python
+# app/models/task.py
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="PENDING", nullable=False)
+```
+
+- **`Mapped[T]`**: Type annotation recognized by IDEs (VS Code, PyCharm) and static linters (Mypy, Pyright). `task.id` is typed as an `int`, not a generic column.
+- **`Mapped[str | None]`**: Explicitly documents that the column is nullable in PostgreSQL.
+
+#### Modern 2.0 Query Style:
+```python
+# Legacy 1.x: db.query(Task).filter(Task.owner_id == user_id).all()
+# Modern 2.0:
+query = select(Task).where(Task.owner_id == user_id)
+tasks = db.scalars(query).all()
+```
+`select()` mirrors standard SQL statements. `scalars()` unpacks row tuples directly into model instances.
+
+---
+
+### 6.3. Relational Modeling & Cascading Deletions
+
+TaskVault establishes a classic **One-to-Many** relationship between `User` and `Task`:
+
+```text
+┌─────────────────────────┐             ┌─────────────────────────┐
+│          users          │             │          tasks          │
+├─────────────────────────┤             ├─────────────────────────┤
+│ id (PK)                 │───1─────N───┤ id (PK)                 │
+│ username                │             │ title                   │
+│ email                   │             │ owner_id (FK -> users)  │
+│ hashed_password         │             │ status                  │
+└─────────────────────────┘             └─────────────────────────┘
+```
+
+#### In `app/models/user.py`:
+```python
+tasks: Mapped[list["Task"]] = relationship(
+    "Task", back_populates="owner", cascade="all, delete-orphan"
+)
+```
+
+#### In `app/models/task.py`:
+```python
+owner_id: Mapped[int] = mapped_column(
+    ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+)
+owner: Mapped["User"] = relationship("User", back_populates="tasks")
+```
+
+#### Dual-Layer Cascading:
+1. **Database Level (`ondelete="CASCADE"`)**: PostgreSQL enforces referential integrity. If a user is deleted directly via SQL, PostgreSQL automatically deletes all tasks linked to that user's ID.
+2. **Application Level (`cascade="all, delete-orphan"`)**: If a task is removed from `user.tasks` in Python memory, SQLAlchemy emits a `DELETE` statement to remove the orphan row from the database.
+
+---
+
+### 6.4. Database Session Lifecycles (`yield db` and Connection Leaks)
+
+Database connections are costly to establish. Applications use a **Connection Pool** to keep open TCP sockets to PostgreSQL.
+
+If route handlers forget to close database sessions, connections remain open indefinitely until the database connection pool is exhausted, crashing the backend (known as a **Connection Leak**).
+
+FastAPI prevents this via Python **generator functions** and dependency injection:
 
 ```python
 # app/database/session.py
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
@@ -266,61 +396,72 @@ def get_db():
         db.close()
 ```
 
-#### How it works per request:
-1. When a route has `db: Session = Depends(get_db)`, FastAPI runs `get_db()`.
-2. A database session is allocated from the connection pool.
-3. Execution pauses at `yield db`, and the session is handed to your router endpoint.
-4. Your route queries or writes to the database.
-5. **The `finally` guarantee:** Once the HTTP response is sent back—**or even if your route crashes with an unhandled exception**—FastAPI resumes execution after `yield` and runs `db.close()`. The connection is cleanly returned to the pool, preventing connection leaks.
+#### Execution Lifecycle During a Request:
+1. **Entry**: An incoming request reaches a route declaring `db: Session = Depends(get_db)`.
+2. **Allocation**: `SessionLocal()` borrows a connection from the engine pool.
+3. **Yield**: Execution pauses at `yield db`, passing the active session to the route logic.
+4. **Endpoint Runs**: The route issues queries and commits transactions.
+5. **The `finally` Guarantee**: When the route completes—**even if an unhandled exception or crash occurred**—FastAPI resumes execution after `yield` and runs `db.close()`. The connection is returned to the pool, guaranteeing zero connection leaks.
 
 ---
 
-### 5.3. Why Alembic Instead of `create_all()`?
+### 6.5. Database Schema Version Control with Alembic
 
-In novice tutorials, you often see:
-```python
-Base.metadata.create_all(bind=engine)
-```
-#### Why this fails in production:
-`create_all()` only creates tables if they **do not exist**. If you add a new column `priority` or change a relationship later, `create_all()` does **nothing** to existing tables.
+In real-world applications, database tables cannot be dropped and recreated when models change, as this would erase production data.
 
-**Alembic** acts as version control for database schemas:
-1. `alembic revision --autogenerate -m "add priority column"`: Alembic inspects your Python models, compares them against the live PostgreSQL database, and writes an incremental migration script.
-2. `alembic upgrade head`: Executes the exact `ALTER TABLE ...` SQL statements against PostgreSQL.
-3. `alembic downgrade -1`: Undoes the last migration if a bug is discovered.
+Alembic provides a linear migration history tracking changes across revisions:
 
----
-
-### 5.4. How JWT Authentication & Argon2 Hashing Work
-
-#### Password Hashing (Argon2):
-When a user registers:
-1. Plaintext password: `"Password123!"`
-2. Argon2 creates a salted, memory-hard hash:
-   `$argon2id$v=19$m=65536,t=3,p=4$salt...$hash...`
-3. Only this hash is saved to PostgreSQL. Even if the database is leaked, attackers cannot reverse it.
-4. When logging in, `verify_password("Password123!", stored_hash)` re-hashes the input with the stored salt in constant time to verify validity.
-
-#### JWT Token Flow:
-When login succeeds, the server generates a signed string:
 ```text
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwicm9sZSI6IlVTRVIiLCJleHAiOjE3MzI3MDc0MDB9.signature
+[ Base Database ] ──► [ Rev 1: create users & tasks ] ──► [ Rev 2: make username non-unique ]
 ```
-- **Header**: Algorithm (`HS256`).
-- **Payload**: User claims (`sub`: user ID, `role`: "USER", `exp`: expiration time).
-- **Signature**: `HMAC_SHA256(header + payload, SECRET_KEY)`.
 
-The client stores this token and passes it in the HTTP header of every request:
-```http
-Authorization: Bearer <access_token>
-```
-The server verifies the signature using `SECRET_KEY`. If someone modifies `"role": "USER"` to `"role": "ADMIN"`, the signature becomes invalid and FastAPI halts the request with `401 Unauthorized`.
+#### Core Alembic Workflow:
+1. **Model Modification**: You update a model (e.g. adding a column in `app/models/task.py`).
+2. **Generate Migration**:
+   ```bash
+   alembic revision --autogenerate -m "add task priority column"
+   ```
+   Alembic compares `Base.metadata` against PostgreSQL and creates a new file in `alembic/versions/`.
+3. **Review Migration Script**: You inspect the generated `upgrade()` and `downgrade()` Python functions.
+4. **Apply Migration**:
+   ```bash
+   alembic upgrade head
+   ```
+   Applies the SQL statements and records the new version hash in PostgreSQL's `alembic_version` table.
+5. **Rollback (if needed)**:
+   ```bash
+   alembic downgrade -1
+   ```
 
 ---
 
-### 5.5. Role-Based Access Control (RBAC) Dependencies
+### 6.6. Cryptographic Security: Argon2 Hashing & JWT Authentication
 
-Instead of writing `if current_user.role != "ADMIN"` inside dozens of route handlers, we use a **Higher-Order Dependency Factory**:
+#### Password Hashing with Argon2id
+Plaintext passwords must never be stored. TaskVault uses **`pwdlib` with Argon2id**:
+- Argon2 was the winner of the global Password Hashing Competition.
+- Unlike legacy algorithms (MD5, SHA256, or traditional bcrypt), Argon2 is **memory-hard**. It requires significant RAM to compute, making hardware brute-force attacks via parallel GPUs or specialized ASIC chips prohibitively expensive.
+- **Salt Generation**: Every hash contains a unique, cryptographically random salt to neutralize precomputed rainbow table attacks.
+- **Constant-Time Verification**: `verify_password()` compares password hashes in constant CPU time to prevent timing attacks.
+
+#### JSON Web Token (JWT) Structure
+When credentials are confirmed via `POST /auth/login`, TaskVault generates a signed JWT:
+```text
+┌──────────────────────┬──────────────────────┬──────────────────────┐
+│        Header        │       Payload        │      Signature       │
+│  {"alg": "HS256"}    │ {"sub": "1",         │ HMAC-SHA256(         │
+│                      │  "role": "USER",     │   header + payload,  │
+│                      │  "exp": 1732707400}  │   SECRET_KEY)        │
+└──────────────────────┴──────────────────────┴──────────────────────┘
+```
+- **Stateless Verification**: The backend does not need to query a Redis session store to verify login validity. The signature guarantees the payload was not tampered with.
+- **Expiration Protection**: The `"exp"` claim enforces automatic expiration (30 minutes default). Expired tokens are rejected automatically by `jwt.decode`.
+
+---
+
+### 6.7. Role-Based Access Control (RBAC) via Dependency Factories
+
+TaskVault implements role gating via a **Higher-Order Dependency Factory**:
 
 ```python
 # app/core/dependencies.py
@@ -337,125 +478,171 @@ def require_role(required_role: str):
 require_admin = require_role("ADMIN")
 ```
 
-#### In the Router:
-```python
-@router.get("/users")
-def list_users(admin: User = Depends(require_admin)):
-    ...
-```
-- Standard users attempting to access `/users` immediately receive **`403 Forbidden`**.
-- Admins are allowed through seamlessly.
+#### Architectural Elegance:
+- **Nested Dependency Injection**: `role_checker` depends on `get_current_user`. FastAPI automatically validates the JWT, looks up the user, and hands it to `role_checker`.
+- **401 Unauthorized vs. 403 Forbidden**:
+  - `401 Unauthorized`: Authentication failed (missing, invalid, or expired token). *"I do not know who you are."*
+  - `403 Forbidden`: Authentication succeeded, but authorization failed. *"I know who you are, but you do not have permission to access this resource."*
+- **Reusability**: New roles (`MANAGER`, `MODERATOR`) can be introduced with zero boilerplate by calling `require_role("MANAGER")`.
 
 ---
 
-### 5.6. Preventing IDOR (Insecure Direct Object References)
+### 6.8. Mitigation of IDOR (Insecure Direct Object References)
 
-In a multi-user application, what happens if Alice creates Task #1, and Bob sends:
-`DELETE /tasks/1`?
+An **IDOR** vulnerability occurs when an application exposes a database identifier (e.g. `/tasks/42`) without verifying whether the requesting user owns that object.
 
-#### Insecure Code (Vulnerable):
+#### Vulnerable Code Example:
 ```python
-task = db.scalar(select(Task).where(Task.id == task_id))
-db.delete(task) # Bob just deleted Alice's task!
+# DANGEROUS: Attacker can change task_id to steal or delete any user's task
+@router.delete("/tasks/{task_id}")
+def delete_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.scalar(select(Task).where(Task.id == task_id))
+    db.delete(task)
 ```
 
-#### TaskVault Secure Pattern:
+#### TaskVault Secure Implementation:
 ```python
 # app/routers/tasks.py
-query = select(Task).where(
-    Task.id == task_id,
-    Task.owner_id == current_user.id  # Strict ownership check!
-)
-task = db.scalar(query)
-if not task:
-    raise HTTPException(status_code=404, detail="Task not found")
+@router.delete("/{task_id}")
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    query = select(Task).where(
+        Task.id == task_id,
+        Task.owner_id == current_user.id  # Strict ownership isolation!
+    )
+    task = db.scalar(query)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    db.delete(task)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 ```
-Notice two critical security decisions:
-1. `Task.owner_id == current_user.id` is baked into every query.
-2. If Bob tries to access Task #1, we return **`404 Not Found`**, not `403`. Returning 404 prevents Bob from discovering whether Task #1 even exists.
+- **Why Return 404 Instead of 403?** Returning `403 Forbidden` informs an attacker that Task #42 exists in the database. Returning `404 Not Found` reveals zero information: to unauthorized users, other users' tasks do not exist.
 
 ---
 
-### 5.7. Custom ASGI Middleware vs. Route Dependencies
+### 6.9. ASGI Middleware vs. Route-Level Dependencies
 
-FastAPI gives you two ways to intercept requests:
+| Evaluation Angle | Custom Middleware (`BaseHTTPMiddleware`) | FastAPI Dependency (`Depends`) |
+|---|---|---|
+| **Invocation Scope** | **Global**: Executes on every single HTTP request entering the ASGI server. | **Targeted**: Executes only on routes that explicitly include the dependency. |
+| **Execution Point** | Runs before routing starts and after response is generated. | Runs during route resolution after path matching. |
+| **Access Level** | Intercepts raw ASGI requests, headers, and responses. | Accesses validated models, path parameters, and injected DB sessions. |
+| **Typical Use Cases** | Request timing, global latency metrics, CORS, security headers. | Authentication, authorization (RBAC), database session provisioning. |
 
-- **FastAPI Dependencies (`Depends`)**:
-  - Bound to specific routes.
-  - Has access to route parameters and yields database sessions.
-  - Used for: Auth, permissions, input parsing.
-- **ASGI Middleware (`BaseHTTPMiddleware`)**:
-  - **Global**: Wraps every single request entering the application, before routing occurs.
-  - Measures total execution duration.
-  - Used for: Request timing, access logging, CORS, global error catching.
-
+#### TaskVault Timing Middleware:
+In `app/middleware/logging.py`, our middleware measures request latency:
 ```python
-# app/middleware/logging.py
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.perf_counter()
         response = await call_next(request)
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        logger.info(f"{request.method} {request.url.path} - {response.status_code} - {duration_ms:.2f}ms")
+        process_time_ms = (time.perf_counter() - start_time) * 1000
+        logger.info(
+            f"{request.method} {request.url.path} - "
+            f"Status: {response.status_code} - "
+            f"Duration: {process_time_ms:.2f}ms"
+        )
         return response
 ```
 
 ---
 
-## 6. API Reference & Testing Guide
+## 7. Automated Testing Suite (`pytest` & `TestClient`)
 
-All endpoints can be interactively tested at `http://127.0.0.1:8000/docs`.
+TaskVault includes an automated test suite in `tests/test_main.py` using **`pytest`** and FastAPI's in-memory **`TestClient`**.
+
+### What the Test Suite Verifies:
+1. **`test_health_check`**: Asserts `/health` returns `200 OK` and `{"status": "healthy"}`.
+2. **`test_auth_registration_and_login`**:
+   - Asserts password hashes are **not** present in outgoing registration payloads.
+   - Asserts duplicate email registrations are rejected with `HTTP 400 Bad Request`.
+   - Asserts valid credentials yield a signed JWT token that successfully authenticates `/auth/me`.
+3. **`test_task_crud_and_isolation` (Anti-IDOR Verification)**:
+   - Registers User A (Alice) and User B (Bob).
+   - Alice creates a private task.
+   - Asserts that Bob receives **`404 Not Found`** when attempting to read, modify, or delete Alice's task.
+   - Asserts Alice can update and delete her own task successfully.
+4. **`test_rbac_security_barriers`**:
+   - Asserts standard users receive **`403 Forbidden`** when attempting to access `/users` or `/tasks/all`.
+   - Asserts administrators receive **`200 OK`** on both administrative endpoints.
+
+### Executing the Tests:
+Ensure `pytest` and `httpx` are installed:
+```bash
+pip install pytest httpx
+```
+Run the test runner with verbose output:
+```bash
+pytest -v
+```
+
+Expected output:
+```text
+tests/test_main.py::test_health_check PASSED                    [ 25%]
+tests/test_main.py::test_auth_registration_and_login PASSED     [ 50%]
+tests/test_main.py::test_task_crud_and_isolation PASSED         [ 75%]
+tests/test_main.py::test_rbac_security_barriers PASSED          [100%]
+
+============================== 4 passed in 2.15s ==============================
+```
+
+---
+
+## 8. Comprehensive REST API Reference & Swagger UI Guide
+
+All endpoints are self-documenting and interactive at `http://127.0.0.1:8000/docs`.
 
 ### Authentication Endpoints (`/auth`)
-| Method | Endpoint | Access | Description | Request Body |
-|---|---|---|---|---|
-| `POST` | `/auth/register` | Public | Register new account (forces role="USER") | `{"username": "...", "email": "...", "password": "..."}` |
-| `POST` | `/auth/login` | Public | Authenticate with email & password | `{"email": "...", "password": "..."}` |
-| `GET` | `/auth/me` | Authenticated | View current authenticated profile | None (Bearer token in header) |
+| Method | Endpoint | Access Level | Description | Request Body | Response Codes |
+|---|---|---|---|---|---|
+| `POST` | `/auth/register` | Public | Register new user (defaults to role `USER`) | `{"username": "...", "email": "...", "password": "..."}` | `201`, `400`, `422` |
+| `POST` | `/auth/login` | Public | Authenticate with email & password | `{"email": "...", "password": "..."}` | `200`, `401`, `422` |
+| `GET` | `/auth/me` | Authenticated | Retrieve current user profile | None (Bearer Token in Header) | `200`, `401` |
 
 ### Task Endpoints (`/tasks`)
-| Method | Endpoint | Access | Description | Request Body |
-|---|---|---|---|---|
-| `POST` | `/tasks` | Authenticated | Create a new task (auto-assigned to user) | `{"title": "...", "description": "...", "status": "PENDING"}` |
-| `GET` | `/tasks` | Authenticated | List all tasks owned by logged-in user | None |
-| `GET` | `/tasks/{id}` | Owner Only | Get task details by ID | None |
-| `PUT` | `/tasks/{id}` | Owner Only | Partial/Full update task attributes | `{"status": "COMPLETED"}` (any field optional) |
-| `DELETE` | `/tasks/{id}`| Owner Only | Delete task (returns 204 No Content) | None |
-| `GET` | `/tasks/all` | **ADMIN Only**| List all tasks across all users | None |
+| Method | Endpoint | Access Level | Description | Request Body | Response Codes |
+|---|---|---|---|---|---|
+| `POST` | `/tasks` | Authenticated | Create a new task (auto-assigned to user) | `{"title": "...", "description": "...", "status": "PENDING"}` | `201`, `401`, `422` |
+| `GET` | `/tasks` | Authenticated | List all tasks owned by current user | None | `200`, `401` |
+| `GET` | `/tasks/all` | **ADMIN Only**| List all tasks across all users | None | `200`, `401`, `403` |
+| `GET` | `/tasks/{id}` | Owner Only | Retrieve specific task by ID | None | `200`, `401`, `404` |
+| `PUT` | `/tasks/{id}` | Owner Only | Partial/Full update task attributes | `{"status": "COMPLETED"}` (all fields optional) | `200`, `401`, `404`, `422` |
+| `DELETE` | `/tasks/{id}`| Owner Only | Delete specific task | None | `204`, `401`, `404` |
 
-### User Management Endpoints (`/users`)
-| Method | Endpoint | Access | Description | Request Body |
-|---|---|---|---|---|
-| `GET` | `/users` | **ADMIN Only**| List all registered users | None |
-| `PATCH`| `/users/{id}/role` | **ADMIN Only**| Promote user to `ADMIN` or demote to `USER` | `{"role": "ADMIN"}` |
+### Administrative User Endpoints (`/users`)
+| Method | Endpoint | Access Level | Description | Request Body | Response Codes |
+|---|---|---|---|---|---|
+| `GET` | `/users` | **ADMIN Only**| List all registered users | None | `200`, `401`, `403` |
+| `PATCH`| `/users/{id}/role` | **ADMIN Only**| Promote user to `ADMIN` or demote to `USER` | `{"role": "ADMIN"}` | `200`, `401`, `403`, `404` |
 
-### System
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `GET` | `/health` | Public | Returns `{"status": "healthy"}` |
+### System Endpoints
+| Method | Endpoint | Access Level | Description | Response Codes |
+|---|---|---|---|---|
+| `GET` | `/health` | Public | Returns `{"status": "healthy"}` | `200` |
 
 ---
 
-## 7. Automated Testing with Pytest
+## 9. Production Deployment & Security Hardening Checklist
 
-TaskVault includes comprehensive automated test suites in the `tests/` directory verifying:
-- **Health check** availability.
-- **User registration, duplicate rejection, and JWT generation**.
-- **Task CRUD operations & Anti-IDOR protection** (verifying that User B receives `404 Not Found` when attempting to read, update, or delete User A's tasks).
-- **Role-Based Access Control** (verifying standard users receive `403 Forbidden` on `/users` and `/tasks/all`, while Admins receive `200 OK`).
+When preparing TaskVault for production cloud hosting (e.g. AWS, Render, Fly.io, Railway, DigitalOcean):
 
-### Running the Test Suite:
-1. Install test dependencies:
-   ```bash
-   pip install pytest httpx
-   ```
-2. Run all tests:
-   ```bash
-   pytest -v
-   ```
+- [ ] **Rotate Secret Keys**: Generate a strong cryptographic secret:
+  ```bash
+  python -c "import secrets; print(secrets.token_urlsafe(32))"
+  ```
+  Set this as `SECRET_KEY` in your cloud provider environment dashboard. Never commit `.env` to Git.
+- [ ] **Enforce HTTPS**: Ensure your reverse proxy (Cloudflare, NGINX, AWS ALB) terminates SSL so all tokens and credentials are encrypted in transit.
+- [ ] **Configure Connection Pooling**: When deploying serverless containers (like AWS Lambda or Google Cloud Run) against Neon PostgreSQL, configure Neon's connection pooler (`-pooler` hostname) to avoid exhausting PostgreSQL connection slots.
+- [ ] **Turn Off Debugging**: Ensure `echo=False` on the SQLAlchemy engine to prevent query parameters from being printed to cloud logs.
+- [ ] **Containerization**: Use a multi-stage Docker build with a non-root user for security isolation.
 
 ---
 
-## 8. License & Credits
+## 10. License & Acknowledgments
 
-Built as part of the **TaskVault** backend architecture project. Feel free to use this codebase as a foundational template for your production FastAPI applications.
+TaskVault is licensed under the **MIT License**. Built as an open architectural reference for production FastAPI backend systems.
